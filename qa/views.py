@@ -53,8 +53,17 @@ def get_text_chunks(text):
 
 def ask_ai(query, context):
     prompt = f"""
-Use the following context to answer the user's question. Do calculations if needed.
-Use clear paragraphs or bullet points for readability if listing information
+You are a reasoning assistant. Use the following extracted PDF content to answer the user's question.
+
+Instructions:
+- If calculations are involved, show clear, step-by-step working.
+- Explore **all logically possible scenarios** based on the context — including edge cases.
+  Examples: rent stays fixed, rent increases by 5% yearly, rent increases once after year 1, rent decreases, unknown rent, etc.
+- If data is missing or unclear, list **all reasonable assumptions** and provide answers for each.
+- Label each case clearly (e.g., "Scenario A: Fixed Rent", "Scenario B: Rent Increases 5% Annually", "Scenario C: Rent Increases 10% Yearly", etc.).
+- Use bullet points or sections for clarity.
+- Be exhaustive, even if it results in more scenarios. Do not skip uncommon but possible outcomes.
+
 Context:
 {context}
 Question: {query}
