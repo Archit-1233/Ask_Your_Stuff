@@ -8,4 +8,6 @@ Pillow
 protobuf
 python-dotenv
 google-generativeai
+gunicorn
+
 
