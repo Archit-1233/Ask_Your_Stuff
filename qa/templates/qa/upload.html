@@ -1,0 +1,212 @@
+{% load markdown_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload & Ask | AskStuff</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: linear-gradient(to right, #0f0f0f, #1a1a1a);
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      scroll-behavior: smooth;
+    }
+    .container {
+      max-width: 800px;
+      margin-top: 60px;
+      background: rgba(30, 30, 30, 0.97);
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.1);
+    }
+    .quote {
+      font-style: italic;
+      color: #ccc;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h2, h4 {
+      color: #00ffd5;
+    }
+    .form-control, .form-select {
+      background-color: #1f1f1f;
+      border: 1px solid #444;
+      color: #eee;
+    }
+    .form-control::placeholder {
+      color: #888;
+    }
+    .btn-primary, .btn-success {
+      background-color: #00ffd5;
+      border: none;
+      color: #000;
+      font-weight: bold;
+      transition: all 0.3s ease-in-out;
+      box-shadow: 0 0 10px rgba(0,255,255,0.4);
+    }
+    .btn-success {
+      background-color: #3cff00;
+    }
+    .btn-primary:hover, .btn-success:hover {
+      box-shadow: 0 0 20px rgba(0,255,255,0.7);
+      transform: scale(1.02);
+    }
+    .alert {
+      background-color: #2e2e2e;
+      border-color: #555;
+      color: #fff;
+    }
+    .bg-info {
+      background-color: rgba(0, 255, 255, 0.1) !important;
+      border-left: 5px solid #00ffd5;
+    }
+    hr {
+      border-top: 1px solid #444;
+    }
+    .text-muted {
+      color: #aaa !important;
+    }
+
+    .floating-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      width: 60px;
+      height: 60px;
+      font-size: 24px;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #00ffd5;
+    }
+
+    .fade-message {
+      animation: fadeOut 4s forwards;
+    }
+
+    @keyframes fadeOut {
+      0% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { opacity: 0; display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2 class="text-center mb-4">📄 Upload a File & Ask</h2>
+  <p class="quote">Upload a file, big or small, <br> we'll find answers to it all! 📚</p>
+
+  {% if messages %}
+    <ul class="messages list-unstyled">
+      {% for message in messages %}
+        <li class="alert alert-{{ message.tags }} fade-message">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    <script>
+      setTimeout(() => {
+        document.getElementById("document_select")?.scrollIntoView({ behavior: 'smooth' });
+      }, 800);
+    </script>
+  {% endif %}
+
+  <h4 class="mb-3">1. Upload a New Document</h4>
+  <form method="post" enctype="multipart/form-data" class="mb-5 p-3 border rounded bg-dark" id="upload-form">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="document" class="form-label">Choose Document (PDF, JPG, PNG):</label>
+      <input type="file" class="form-control" id="document" name="document" accept=".pdf,.jpg,.jpeg,.png" required>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Upload Document</button>
+    <div id="uploadSpinner" style="display:none;" class="text-center mt-3">
+      <div class="spinner-border text-info" role="status">
+        <span class="visually-hidden">Uploading...</span>
+      </div>
+      <p class="mt-2">Uploading document...</p>
+    </div>
+  </form>
+
+  <hr>
+
+  <h4 class="mb-3">2. Ask Questions About Your Documents</h4>
+  {% if user_documents %}
+    <form method="post" class="p-3 border rounded bg-dark" id="ask-form">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="document_select" class="form-label">Select a document to query:</label>
+        <select class="form-select" id="document_select" name="document_id" required>
+          <option value="">-- Select a Document --</option>
+          {% for doc in user_documents %}
+            <option value="{{ doc.id }}" {% if selected_document_id == doc.id|stringformat:"s" %}selected{% endif %}>
+              {{ doc.file.name }} ({{ doc.uploaded_at|date:"M d, Y H:i" }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="query" class="form-label">Ask a question:</label>
+        <input type="text" class="form-control" id="query" name="query" placeholder="Enter your question here" required value="{{ query_asked|default:'' }}">
+      </div>
+      <button type="submit" class="btn btn-success w-100">Ask AI</button>
+
+      <div id="loadingSpinner" style="display:none;" class="text-center mt-3">
+        <div class="spinner-border text-info" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Processing your question...</p>
+      </div>
+    </form>
+
+    {% if answer %}
+      <div id="answer-block">
+        <hr />
+        <div class="mt-4 p-3 border rounded bg-info text-light">
+          <h4>🎯 AI Answer:</h4>
+          <p>{{ answer|convert_markdown|safe }}</p>
+        </div>
+      </div>
+      <script>
+        // Scroll to answer
+        setTimeout(() => {
+          window.scrollTo({
+            top: document.getElementById("answer-block").offsetTop - 100,
+            behavior: 'smooth'
+          });
+        }, 500);
+      </script>
+    {% endif %}
+  {% else %}
+    <p class="text-center mt-4 text-muted">No documents uploaded yet. Upload one above to start asking questions!</p>
+  {% endif %}
+
+  <div class="text-center mt-5">
+    <a href="{% url 'history' %}" class="btn btn-outline-secondary me-2">🕓 View History</a>
+    <a href="{% url 'logout' %}" class="btn btn-outline-danger">Logout</a>
+  </div>
+</div>
+
+<!-- Floating Chat Shortcut Button -->
+<button class="btn btn-info floating-btn" onclick="scrollToAskForm()">💬</button>
+
+<script>
+  const uploadForm = document.getElementById('upload-form');
+  uploadForm.addEventListener('submit', () => {
+    document.getElementById('uploadSpinner').style.display = 'block';
+  });
+
+  const askForm = document.getElementById('ask-form');
+  if (askForm) {
+    askForm.addEventListener('submit', () => {
+      document.getElementById('loadingSpinner').style.display = 'block';
+    });
+  }
+
+  function scrollToAskForm() {
+    document.getElementById("ask-form").scrollIntoView({ behavior: 'smooth' });
+  }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
