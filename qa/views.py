@@ -81,18 +81,23 @@ def signup(request):
             messages.error(request, "Username already taken!")
         else:
             user = User.objects.create_user(username=username, password=password)
-            Client.objects.create(user=user, name=username) # Link Client to User
+            Client.objects.create(user=user, name=username) 
             messages.success(request, "Signup successful. Please login.")
             return redirect("login")
     return render(request, "qa/signup.html")
 
 def login_view(request):
     if request.method == "POST":
-        user = authenticate(request, username=request.POST['username'], password=request.POST['password'])
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        user = authenticate(request, username=username, password=password)
         if user:
             login(request, user)
             return redirect("upload")
-        messages.error(request, "Invalid credentials.")
+        else:
+            messages.error(request, "Invalid username or password.")
+            # Re-render with new CSRF token
+            return render(request, "qa/login.html")
     return render(request, "qa/login.html")
 
 def logout_view(request):
@@ -104,7 +109,7 @@ def home(request):
 
 @login_required
 def upload(request):
-    client = get_object_or_404(Client, user=request.user) # Get client linked to current user
+    client, _ = Client.objects.get_or_create(user=request.user, defaults={'name': request.user.username})
     user_documents = Document.objects.filter(client=client).order_by('-uploaded_at') # Get documents for the current user
 
     if request.method == "POST":
